@@ -1,24 +1,62 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Clase Note para representar las notas
+class Note {
+  final String title;
+  final String content;
+
+  Note({required this.title, required this.content});
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'content': content,
+    };
+  }
+
+  static Note fromMap(Map<String, dynamic> map) {
+    return Note(
+      title: map['title'],
+      content: map['content'],
+    );
+  }
+}
+
+// Clase Profile para representar el perfil de usuario
+class Profile {
+  String name;
+  String description;
+
+  Profile({required this.name, required this.description});
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'description': description,
+    };
+  }
+
+  static Profile fromMap(Map<String, dynamic> map) {
+    return Profile(
+      name: map['name'],
+      description: map['description'],
+    );
+  }
+}
 
 void main() {
   runApp(MyApp());
-}
-
-class Note {
-  String title;
-  String content;
-
-  Note({required this.title, required this.content});
 }
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
+      title: 'Mis Notas',
       theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-        scaffoldBackgroundColor: Colors.grey[100],
+        primarySwatch: Colors.blue,
       ),
       home: HomeScreen(),
     );
@@ -33,24 +71,64 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   List<Note> _notes = [];
+  Profile _profile = Profile(
+    name: 'Christian Vasquez',
+    description: 'Desarrollador de Flutter',
+  );
 
-  void _addNote(String title, String content) {
-    setState(() {
-      _notes.add(Note(title: title, content: content));
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadNotes(); // Cargar las notas al iniciar la app
   }
 
+  // Cargar las notas desde SharedPreferences
+  void _loadNotes() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? notesJson = prefs.getStringList('notes');
+    if (notesJson != null) {
+      setState(() {
+        _notes = notesJson.map((note) {
+          Map<String, dynamic> noteMap = json.decode(note);
+          return Note.fromMap(noteMap);
+        }).toList();
+      });
+    }
+  }
+
+  // Guardar las notas en SharedPreferences
+  void _saveNotes() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> notesJson =
+        _notes.map((note) => json.encode(note.toMap())).toList();
+    prefs.setStringList('notes', notesJson);
+  }
+
+  // Agregar una nueva nota
+  void _addNote(String title, String content) async {
+    setState(() {
+      _notes.add(Note(title: title, content: content)); // Agregar la nota
+    });
+    _saveNotes(); // Guardar las notas después de agregar
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Nota guardada')));
+  }
+
+  // Eliminar una nota
   void _removeNote(int index) {
     setState(() {
-      _notes.removeAt(index);
+      _notes.removeAt(index); // Eliminar la nota seleccionada
     });
+    _saveNotes(); // Guardar las notas después de eliminar
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: Text('Mis Notas')),
       body: Row(
         children: [
+          // Barra de navegación lateral
           NavigationRail(
             backgroundColor: Colors.deepPurple.shade100,
             selectedIndex: _selectedIndex,
@@ -73,18 +151,22 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.person),
-                selectedIcon: Icon(Icons.person_outline, color: Colors.red),
-                label: Text('Usuario'),
+                selectedIcon: Icon(Icons.person_pin, color: Colors.red),
+                label: Text('Perfil'),
               ),
             ],
           ),
+          // Contenido principal de la pantalla
           Expanded(
             child: IndexedStack(
               index: _selectedIndex,
               children: [
+                // Pantalla para mostrar las notas
                 NotesListScreen(notes: _notes, onDelete: _removeNote),
+                // Pantalla para agregar una nueva nota
                 NewNoteScreen(onAddNote: _addNote),
-                UserInfoScreen(),
+                // Pantalla para mostrar el perfil
+                ProfileScreen(profile: _profile),
               ],
             ),
           ),
@@ -102,114 +184,191 @@ class NotesListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Lista de Notas')),
-      body: notes.isEmpty
-          ? Center(
-              child: Text('No hay notas guardadas.',
-                  style: TextStyle(fontSize: 18)))
-          : ListView.builder(
-              padding: EdgeInsets.all(10),
-              itemCount: notes.length,
-              itemBuilder: (context, index) {
-                return Card(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  elevation: 4,
-                  child: ListTile(
-                    title: Text(notes[index].title,
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(notes[index].content),
-                    trailing: IconButton(
-                      icon: Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => onDelete(index),
-                    ),
-                  ),
-                );
-              },
-            ),
+    return ListView.builder(
+      itemCount: notes.length,
+      itemBuilder: (context, index) {
+        return ListTile(
+          title: Text(notes[index].title),
+          subtitle: Text(notes[index].content),
+          trailing: IconButton(
+            icon: Icon(Icons.delete),
+            onPressed: () => onDelete(index), // Eliminar la nota
+          ),
+        );
+      },
     );
   }
 }
 
-class NewNoteScreen extends StatefulWidget {
+class NewNoteScreen extends StatelessWidget {
   final Function(String, String) onAddNote;
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _contentController = TextEditingController();
 
   NewNoteScreen({required this.onAddNote});
 
   @override
-  _NewNoteScreenState createState() => _NewNoteScreenState();
-}
-
-class _NewNoteScreenState extends State<NewNoteScreen> {
-  final _titleController = TextEditingController();
-  final _contentController = TextEditingController();
-
-  void _saveNote() {
-    if (_titleController.text.isNotEmpty &&
-        _contentController.text.isNotEmpty) {
-      widget.onAddNote(_titleController.text, _contentController.text);
-      _titleController.clear();
-      _contentController.clear();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Nota guardada')));
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Nueva Nota')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                  labelText: 'Título', border: OutlineInputBorder()),
-            ),
-            SizedBox(height: 10),
-            TextField(
-              controller: _contentController,
-              decoration: InputDecoration(
-                  labelText: 'Contenido', border: OutlineInputBorder()),
-              maxLines: 5,
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _saveNote,
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
-              child:
-                  Text('Guardar Nota', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          TextField(
+            controller: _titleController,
+            decoration: InputDecoration(labelText: 'Título de la nota'),
+          ),
+          TextField(
+            controller: _contentController,
+            decoration: InputDecoration(labelText: 'Contenido de la nota'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              String title = _titleController.text;
+              String content = _contentController.text;
+              if (title.isNotEmpty && content.isNotEmpty) {
+                onAddNote(title, content); // Agregar la nota
+                _titleController.clear();
+                _contentController.clear();
+              }
+            },
+            child: Text('Guardar Nota'),
+          ),
+        ],
       ),
     );
   }
 }
 
-class UserInfoScreen extends StatelessWidget {
+class ProfileScreen extends StatelessWidget {
+  final Profile profile;
+
+  ProfileScreen({required this.profile});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Información del Usuario')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 60,
-              backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.blue.shade50,
+              Colors.green.shade50,
+              Colors.yellow.shade50
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Center(
+          child: Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            SizedBox(height: 10),
-            Text('Nombre: Christian Vasquez',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text('Email: Chrisss.Vas@example.com',
-                style: TextStyle(fontSize: 16)),
-          ],
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Imagen de perfil
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Colors.blue,
+                    child: Icon(Icons.person, size: 50, color: Colors.white),
+                  ),
+                  SizedBox(height: 8),
+                  // Nombre y descripción
+                  Text(
+                    profile.name,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    profile.description,
+                    style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+                  ),
+                  SizedBox(height: 8),
+                  // Número de "likes"
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.favorite, color: Colors.red),
+                      SizedBox(width: 4),
+                      Text(
+                        "99",
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12),
+                  // Lista de habilidades
+                  Wrap(
+                    spacing: 8,
+                    children:
+                        ["SQL", "C++", "C#", "VB", "JavaScript"].map((skill) {
+                      return Chip(
+                        label: Text(skill),
+                        backgroundColor: Colors.blue.shade100,
+                      );
+                    }).toList(),
+                  ),
+                  SizedBox(height: 16),
+                  // Botones de acción
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {},
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text("Contactar"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {},
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade300,
+                        ),
+                        child: Text("CV"),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  // Sección de estadísticas
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Column(
+                        children: [
+                          Icon(Icons.star, color: Colors.amber),
+                          Text("25",
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text("Proyectos"),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          Icon(Icons.people, color: Colors.blue),
+                          Text("2.4K",
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text("Seguidores"),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          Icon(Icons.thumb_up, color: Colors.red),
+                          Text("5.0",
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text("Rating"),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
