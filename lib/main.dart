@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Clase Note para representar las notas
 class Note {
   final String title;
   final String content;
@@ -24,7 +23,6 @@ class Note {
   }
 }
 
-// Clase Profile para representar el perfil de usuario
 class Profile {
   String name;
   String description;
@@ -79,10 +77,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadNotes(); // Cargar las notas al iniciar la app
+    _loadNotes(); 
   }
 
-  // Cargar las notas desde SharedPreferences
   void _loadNotes() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String>? notesJson = prefs.getStringList('notes');
@@ -96,7 +93,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Guardar las notas en SharedPreferences
   void _saveNotes() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<String> notesJson =
@@ -104,22 +100,21 @@ class _HomeScreenState extends State<HomeScreen> {
     prefs.setStringList('notes', notesJson);
   }
 
-  // Agregar una nueva nota
   void _addNote(String title, String content) async {
     setState(() {
-      _notes.add(Note(title: title, content: content)); // Agregar la nota
+      _notes.add(Note(title: title, content: content)); 
     });
-    _saveNotes(); // Guardar las notas después de agregar
+    _saveNotes(); 
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text('Nota guardada')));
   }
 
-  // Eliminar una nota
+  
   void _removeNote(int index) {
     setState(() {
-      _notes.removeAt(index); // Eliminar la nota seleccionada
+      _notes.removeAt(index); 
     });
-    _saveNotes(); // Guardar las notas después de eliminar
+    _saveNotes(); 
   }
 
   @override
@@ -128,7 +123,6 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(title: Text('Mis Notas')),
       body: Row(
         children: [
-          // Barra de navegación lateral
           NavigationRail(
             backgroundColor: Colors.deepPurple.shade100,
             selectedIndex: _selectedIndex,
@@ -156,16 +150,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          // Contenido principal de la pantalla
           Expanded(
             child: IndexedStack(
               index: _selectedIndex,
               children: [
-                // Pantalla para mostrar las notas
                 NotesListScreen(notes: _notes, onDelete: _removeNote),
-                // Pantalla para agregar una nueva nota
                 NewNoteScreen(onAddNote: _addNote),
-                // Pantalla para mostrar el perfil
                 ProfileScreen(profile: _profile),
               ],
             ),
@@ -192,7 +182,7 @@ class NotesListScreen extends StatelessWidget {
           subtitle: Text(notes[index].content),
           trailing: IconButton(
             icon: Icon(Icons.delete),
-            onPressed: () => onDelete(index), // Eliminar la nota
+            onPressed: () => onDelete(index), 
           ),
         );
       },
@@ -226,7 +216,7 @@ class NewNoteScreen extends StatelessWidget {
               String title = _titleController.text;
               String content = _contentController.text;
               if (title.isNotEmpty && content.isNotEmpty) {
-                onAddNote(title, content); // Agregar la nota
+                onAddNote(title, content); 
                 _titleController.clear();
                 _contentController.clear();
               }
@@ -270,14 +260,12 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Imagen de perfil
                   CircleAvatar(
                     radius: 40,
                     backgroundColor: Colors.blue,
                     child: Icon(Icons.person, size: 50, color: Colors.white),
                   ),
                   SizedBox(height: 8),
-                  // Nombre y descripción
                   Text(
                     profile.name,
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -287,7 +275,6 @@ class ProfileScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
                   ),
                   SizedBox(height: 8),
-                  // Número de "likes"
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -301,7 +288,6 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                   SizedBox(height: 12),
-                  // Lista de habilidades
                   Wrap(
                     spacing: 8,
                     children:
@@ -313,7 +299,6 @@ class ProfileScreen extends StatelessWidget {
                     }).toList(),
                   ),
                   SizedBox(height: 16),
-                  // Botones de acción
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -335,7 +320,6 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                   SizedBox(height: 16),
-                  // Sección de estadísticas
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
